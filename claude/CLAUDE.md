@@ -7,8 +7,9 @@ adds only Claude tool names and Claude lifecycle; it never restates a shared rul
 
 ## Load
 
-1. `../SKILL.md`, loaded through `scripts/orchestrate.py load`; read the file
-   directly only when that tool is unavailable.
+1. `../SKILL.md`, loaded by the host's skill mechanism (with Skills AI installed:
+   `scripts/orchestrate.py load`); read the file directly only when no loader is
+   available.
 2. One workflow for the resolved mode — `../build-system.md` for `build-system`,
    `../optimize.md` for `optimize`. Never load both for one request.
 3. `../situation-analysis.md` only for an `explore`, `intervene`, `continue` or
