@@ -28,6 +28,14 @@ Run `python3 scripts/optimizer_api.py status` to verify the connection. The
 helper reports the live route and environment; it never installs or copies the
 external runtime.
 
+## Standalone use
+
+Clone the repository and place it where your host loads skills; connect the separately
+installed Optimizer system as described above. `python3 -m unittest discover -s tests`
+verifies the package. Update with `git pull --ff-only` after reading `CHANGELOG.md`. The
+version is in `VERSION`. Roll back with `git revert` or a checkout of an earlier tag.
+Skills AI integration is optional; this repository needs nothing from it.
+
 ---
 
 [⌂ Home](README.md)
