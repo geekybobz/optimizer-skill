@@ -10,10 +10,30 @@ experiment before numerical execution. Match source/derivation, family, objectiv
 metric direction, physical parameters, layouts and previous replay. Verify required
 derivatives and capabilities before choosing a method. Record acceptance tolerances,
 multistart coverage, total budget, per-chunk limits and stopping conditions.
-Use the adaptive loop: run a bounded action, inspect stored evidence, decide, repeat.
+Use the decision boundaries in Efficient execution below.
 Use available CPUs minus three, floored at one, as the total worker ceiling; independent
 heavy runs are sequential by default and native numerical-library threads initially one.
 Nested workers/threads count toward the ceiling. This does not reserve OS-wide cores.
+
+## Efficient execution
+
+- Establish the problem, runtime, acceptance checks, search coverage, budget and
+  stopping conditions once. Recheck only what changed or became uncertain.
+- Batch operations whose inputs and next steps are already determined. Preserve
+  numerical checks and stop on failures; do not batch across a decision that needs
+  scientific interpretation or user review.
+- Numerical chunks and checkpoints do not each require a model turn. Continue
+  approved work through supported CLI scripts or jobs within the recorded budget;
+  use supported waits instead of repeated model-driven status polling.
+- Inspect evidence when it can change the next action: completion, a declared
+  acceptance or stopping check, unexpected failure or behaviour, or a proposed
+  change of problem, method or selection criteria. Investigate exceptions promptly.
+- Request compact decision-relevant summaries and references. Fetch detailed logs,
+  arrays or diagnostics only when needed; reuse retained context and results.
+- Keep human progress viewing separate from execution. Provide the existing
+  read-only viewer command; do not navigate its display to obtain machine evidence.
+- Preserve required verification and resource limits. Compare equivalent work
+  before claiming efficiency gains; output size alone is not measured token usage.
 
 ## Multistart protocol
 

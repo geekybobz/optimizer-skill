@@ -12,8 +12,9 @@ or an explicitly supplied runtime Python, with isolated imports. `discover <quer
 is imported. Receipt metadata is provenance, not a fresh wheel-integrity certificate.
 Read only the named live API/contract and relevant source topic, not the entire manual.
 
-Prefer the installed CLI for this user's optimizer work. Run short, bounded batches
-of known operations, inspect each outcome before dependent decisions, and save/pin
+Prefer the installed CLI for this user's optimizer work. Batch predetermined
+operations within approved numerical and resource limits; follow
+[optimize.md](optimize.md#efficient-execution) for decision boundaries. Save/pin
 important candidates and checkpoints. CLI is the default workflow preference,
 not a claim of universally faster numerical solvers.
 
