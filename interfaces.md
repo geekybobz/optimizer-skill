@@ -12,15 +12,16 @@ or an explicitly supplied runtime Python, with isolated imports. `discover <quer
 is imported. Receipt metadata is provenance, not a fresh wheel-integrity certificate.
 Read only the named live API/contract and relevant source topic, not the entire manual.
 
-Select the interface by the next decision, not by an assumed solver-speed advantage:
+Prefer the installed CLI for this user's optimizer work. Run short, bounded batches
+of known operations, inspect each outcome before dependent decisions, and save/pin
+important candidates and checkpoints. CLI is the default workflow preference,
+not a claim of universally faster numerical solvers.
 
-- Use native MCP for adaptive discovery, typed references, bounded inspection,
-  candidate selection and managed-job control when tools are exposed.
-- Use the installed CLI for a predetermined repeatable sequence: one bounded
-  script can run several operations in one host call. Stop and inspect failures;
-  do not batch decisions that require looking at an earlier result first.
-- Combine them through the same named experiment/coordinator and retained refs;
-  a CLI batch need not export large arrays for MCP to continue the work.
+Native MCP remains available. Switch to it when typed references, paged inspection,
+adaptive discovery or managed-job interaction make the next step easier; then return
+to CLI for repeatable batches when useful. Both interfaces can continue the same named
+experiment/coordinator and retained references without rebuilding the physical system.
+A CLI batch need not export large arrays for MCP to continue the work.
 
 Both routes use the same numerical service, persistence and history. Host tool
 round trips, response envelopes and batching can dominate short calls. Wire bytes
