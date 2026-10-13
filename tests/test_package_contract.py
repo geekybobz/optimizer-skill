@@ -1,234 +1,101 @@
-#!/usr/bin/env python3
-"""Route, adaptive workflow and discovery contract of the optimizer package.
-
-Runs standalone from the package root: python3 -m unittest discover -s tests
-"""
-
 from __future__ import annotations
-
 import importlib.util
 import json
-import os
-import subprocess
-import sys
+from pathlib import Path
+import re
 import tempfile
 import unittest
-from pathlib import Path
-from unittest.mock import patch
+
+PACKAGE=Path(__file__).resolve().parents[1]
+spec=importlib.util.spec_from_file_location("optimizer_viewer",PACKAGE/"scripts/optimizer_session.py")
+viewer=importlib.util.module_from_spec(spec); spec.loader.exec_module(viewer)
 
 
-PACKAGE = Path(__file__).resolve().parents[1]
+def row(kind="outcome", **data):
+    return dict(schema="optimizer-history/1", sequence=1, kind=kind, timestamp="now",
+                command_id="c1", data=data)
 
 
-def load_discovery_helper():
-    path = PACKAGE / "scripts" / "optimizer_api.py"
-    spec = importlib.util.spec_from_file_location("optimizer_api_under_test", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+class ViewerTests(unittest.TestCase):
+    def test_controls_are_escaped_and_output_is_bounded(self):
+        text=viewer.render(row(status="ok",operations=[{"operation":"solve"}],
+                              summary={"value":"\x1b[31m"+"x"*5000}))
+        self.assertNotIn("\x1b",text)
+        self.assertLess(len(text),1000)
+
+    def test_partial_append_is_read_exactly_once_when_completed(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"history.jsonl"
+            raw=json.dumps(row(status="ok",operations=[],summary={}))
+            path.write_text(raw[:20])
+            reader=viewer.HistoryReader(path)
+            self.assertEqual([],list(reader.read()))
+            self.assertTrue(reader.partial)
+            with path.open("a") as f: f.write(raw[20:]+"\n")
+            self.assertEqual(1,len(list(reader.read())))
+            self.assertEqual([],list(reader.read()))
+
+    def test_read_leaves_history_bytes_and_metadata_unchanged(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"history.jsonl"
+            path.write_text(json.dumps(row(status="ok",operations=[]))+"\n")
+            before=(path.read_bytes(),path.stat().st_mtime_ns)
+            list(viewer.HistoryReader(path).read())
+            self.assertEqual(before,(path.read_bytes(),path.stat().st_mtime_ns))
+            self.assertEqual(["history.jsonl"],[p.name for p in Path(d).iterdir()])
+
+    def test_truncation_stops_instead_of_replaying(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"history.jsonl"
+            path.write_text(json.dumps(row(status="ok",operations=[]))+"\n")
+            reader=viewer.HistoryReader(path); list(reader.read()); path.write_text("")
+            with self.assertRaisesRegex(ValueError,"truncated"):
+                list(reader.read())
+
+    def test_unknown_schema_and_bad_complete_line_fail(self):
+        with self.assertRaises(ValueError): viewer.render({"schema":"unknown"})
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"history.jsonl";path.write_text("bad\n")
+            with self.assertRaisesRegex(ValueError,"byte 0"):
+                list(viewer.HistoryReader(path).read())
+
+    def test_nested_mcp_request_names_the_submitted_operation(self):
+        text=viewer.render(row("submitted",origin="mcp",
+            expression={"action":"execute", "request":{"operation":"shooting.solve_shooting", "arguments":{"hidden":"private"}}}))
+        self.assertIn("shooting.solve_shooting",text)
+        self.assertNotIn("private",text)
+
+    def test_submissions_omit_arguments_and_environment(self):
+        text=viewer.render(row("submitted",origin="mcp",raw="private",environment={"token":"secret"},
+                              expression={"operation":"gradient", "arguments":{"value":"secret"}}))
+        self.assertIn("gradient",text)
+        self.assertNotIn("secret",text); self.assertNotIn("private",text)
 
 
-class OptimizerSkillTests(unittest.TestCase):
-    def read(self, relative: str) -> str:
-        return (PACKAGE / relative).read_text(encoding="utf-8")
+class PackageTests(unittest.TestCase):
+    def test_local_links_and_home_footers_resolve(self):
+        for path in PACKAGE.rglob("*.md"):
+            with self.subTest(path=str(path.relative_to(PACKAGE))):
+                text=path.read_text()
+                lines=[line for line in text.splitlines() if line.strip()]
+                self.assertEqual("---",lines[-2])
+                self.assertIn("[⌂ Home]",lines[-1])
+                for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)",text):
+                    if "://" in target or target.startswith("#"): continue
+                    self.assertTrue((path.parent/target.split("#")[0]).exists(),target)
 
-    def test_claude_wrapper_states_tool_and_lifecycle_boundaries(self) -> None:
-        entry = self.read("SKILL.md")
-        wrapper = " ".join(self.read("claude/CLAUDE.md").split())
-        self.assertIn("claude/CLAUDE.md", entry)
-        self.assertIn("Resolve the mode from the leading directive", wrapper)
-        self.assertNotIn("inject", wrapper.lower())
-        self.assertIn("optimizer_api.py", wrapper)
-        self.assertIn("wait for approval", wrapper)
-        self.assertIn("never touch the optimizer library itself", wrapper)
-        self.assertIn("untrusted data", wrapper)
-        self.assertIn("subagent", wrapper)
-        self.assertIn("not certified", wrapper)
+    def test_execution_entry_is_compact_and_family_guides_are_nested(self):
+        entry=(PACKAGE/"SKILL.md").read_text()
+        self.assertLess(len(entry.encode()),3500)
+        self.assertNotIn("](build-olgs.md)",entry)
+        self.assertNotIn("](build-olss.md)",entry)
+        parent=(PACKAGE/"build-system.md").read_text()
+        self.assertIn("](build-olgs.md)",parent)
+        self.assertIn("](build-olss.md)",parent)
+        for child in ["build-olgs.md","build-olss.md"]:
+            self.assertIn("](build-system.md)",(PACKAGE/child).read_text())
 
-    def test_codex_wrapper_states_tool_and_lifecycle_boundaries(self) -> None:
-        entry = self.read("SKILL.md")
-        wrapper = " ".join(self.read("codex/CODEX.md").split())
-        self.assertIn("codex/CODEX.md", entry)
-        self.assertIn("leading literal directive", wrapper)
-        self.assertNotIn("skill_invocation", wrapper)
-        self.assertIn("optimizer_api.py", wrapper)
-        self.assertIn("apply_patch", wrapper)
-        self.assertIn("never a project system or numerical run", wrapper)
-        self.assertIn("optimizer library itself", wrapper)
-        self.assertIn("untrusted data", wrapper)
-        self.assertIn("Claude acceptance", wrapper)
+    def test_manual_host_invocation_policy_is_preserved(self):
+        self.assertIn("allow_implicit_invocation: false",(PACKAGE/"agents/openai.yaml").read_text())
 
-    def test_wrapper_adds_platform_facts_without_restating_shared_rules(self) -> None:
-        wrapper = " ".join(self.read("claude/CLAUDE.md").split())
-        for owned_elsewhere in (
-            "parameter continuation",
-            "Fourier",
-            "fingerprint",
-            "analytical gradient",
-            "global optimum",
-        ):
-            with self.subTest(rule=owned_elsewhere):
-                self.assertNotIn(owned_elsewhere, wrapper)
-
-    def test_entry_stays_compact_and_resolves_through_one_helper(self) -> None:
-        entry = self.read("SKILL.md")
-        # Every optimizer request loads this entry in full.
-        self.assertLess((PACKAGE / "SKILL.md").stat().st_size, 3500)
-        self.assertLess((PACKAGE / "claude" / "CLAUDE.md").stat().st_size, 2500)
-        # The resolver path has one home, in the discovery helper.
-        self.assertNotIn("optimizer_registry.py", entry)
-        self.assertIn("optimizer_registry.py", self.read("scripts/optimizer_api.py"))
-        for operation in ("status", "catalog", "explore", "intervene", "continue", "branch"):
-            with self.subTest(operation=operation):
-                self.assertIn(f"#> optimizer {operation}", entry)
-
-    def test_workflows_are_adaptive_and_keep_problem_boundaries(self) -> None:
-        entry = (PACKAGE / "SKILL.md").read_text(encoding="utf-8")
-        build = (PACKAGE / "build-system.md").read_text(encoding="utf-8")
-        optimize = (PACKAGE / "optimize.md").read_text(encoding="utf-8")
-        situation = (PACKAGE / "situation-analysis.md").read_text(encoding="utf-8")
-        self.assertIn("never hard-code a stable version or environment", entry)
-        self.assertIn("#> optimizer explore", entry)
-        self.assertIn("#> optimizer intervene", entry)
-        self.assertIn("#> optimizer continue", entry)
-        self.assertIn("#> optimizer branch", entry)
-        self.assertIn("Stop for review", build)
-        self.assertIn("adaptive loop", optimize)
-        self.assertIn("not a fixed recipe or a default method tournament", optimize)
-        self.assertIn("new problem", optimize)
-        self.assertIn("never called continuation", optimize)
-        self.assertIn("Fourier family", optimize)
-        self.assertIn("never become a competing numerical history", optimize)
-        self.assertIn("Do not trigger numerical work\nwhile reading reports", situation)
-        self.assertIn("new-problem branch", situation)
-        self.assertIn("self-modifying", situation)
-        # The identity contract has one home; situation analysis points at it.
-        self.assertIn("problem-identity table in `optimize.md`", situation)
-        self.assertNotIn("with_secondary", situation)
-
-    def test_execution_integrity_gate_precedes_strategy_changes(self) -> None:
-        optimize = self.read("optimize.md")
-        situation = self.read("situation-analysis.md")
-        build = self.read("build-system.md")
-
-        # The gate is an ordered recovery contract: preserve evidence, reduce
-        # to a deterministic reproduction, distinguish likely causes, and do
-        # not silently alter the scientific problem to make an error disappear.
-        for required in (
-            "Freeze the current problem identity",
-            "Reproduce the smallest deterministic case",
-            "route/import, static\n   contract, finite/shape, exact replay, directional gradient",
-            "environment/setup, API/shape, numerical\n   implementation, derivative, modelling/assumption, or unresolved anomaly",
-            "Do not change physics, controls, objective, or optimizer settings as a\n\"fix\" before classification",
-            "Require approval for a code edit",
-            "new validation boundary",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(required, optimize)
-        self.assertIn("execution-integrity gate before", optimize)
-        self.assertIn("execution failure or suspicious result", situation)
-        self.assertIn("instead of an optimizer intervention", situation)
-        self.assertIn("before presenting the system as optimization-ready", build)
-
-    def test_discovery_helper_uses_the_resolved_environment_and_exposes_contract(self) -> None:
-        helper = load_discovery_helper()
-        route = {"environment": "optimizer_v4"}
-        completed = subprocess.CompletedProcess(
-            args=[],
-            returncode=0,
-            stdout=json.dumps({"required_hooks": ["system_spec"]}),
-        )
-        with patch.object(helper.subprocess, "run", return_value=completed) as run:
-            payload = helper.live_payload(route, "contract", None)
-        self.assertEqual(["system_spec"], payload["payload"]["required_hooks"])
-        args = run.call_args.args[0]
-        self.assertEqual(["conda", "run", "--no-capture-output", "-n", "optimizer_v4", "python", "-c"], args[:7])
-        self.assertEqual("contract", args[-1])
-        self.assertIn("opt.contract_info()", args[7])
-
-    @unittest.skipUnless(os.environ.get("OPTIMIZER_SKILL_LIVE") == "1", "set OPTIMIZER_SKILL_LIVE=1 for live optimizer acceptance")
-    def test_live_discovery_acceptance(self) -> None:
-        script = PACKAGE / "scripts" / "optimizer_api.py"
-        for command in ("status", "contract", "campaigns", "tracker", "methods"):
-            with self.subTest(command=command):
-                completed = subprocess.run(
-                    [sys.executable, str(script), command],
-                    text=True,
-                    capture_output=True,
-                    check=True,
-                )
-                payload = json.loads(completed.stdout)
-                self.assertTrue(payload["route"]["environment"])
-                self.assertIsInstance(payload["payload"], dict)
-
-    def test_retained_session_helper_records_decisions_without_numerical_dependencies(self) -> None:
-        script = PACKAGE / "scripts" / "optimizer_session.py"
-        with tempfile.TemporaryDirectory() as directory:
-            session = Path(directory) / "optimization-session.json"
-            initial = subprocess.run(
-                [
-                    sys.executable,
-                    str(script),
-                    "init",
-                    str(session),
-                    "--optimizer-version",
-                    "v4.0.1",
-                    "--optimizer-root",
-                    "/tmp/optimizer-v4",
-                    "--system-target",
-                    "system.py",
-                    "--chunks",
-                    "3",
-                    "--iterations",
-                    "5",
-                ],
-                text=True,
-                capture_output=True,
-                check=True,
-            )
-            self.assertEqual("optimizer.session.v1", json.loads(initial.stdout)["schema"])
-            subprocess.run(
-                [
-                    sys.executable,
-                    str(script),
-                    "record",
-                    str(session),
-                    "--stage",
-                    "scout",
-                    "--method",
-                    "adam",
-                    "--metrics-json",
-                    '{"J": 0.2}',
-                ],
-                text=True,
-                capture_output=True,
-                check=True,
-            )
-            updated = subprocess.run(
-                [
-                    sys.executable,
-                    str(script),
-                    "next",
-                    str(session),
-                    "--code",
-                    "switch-to-lbfgs",
-                    "--reason",
-                    "stable plateau",
-                ],
-                text=True,
-                capture_output=True,
-                check=True,
-            )
-        payload = json.loads(updated.stdout)
-        self.assertEqual(2, payload["revision"])
-        self.assertEqual(0.2, payload["best_result"]["value"])
-        self.assertEqual("switch-to-lbfgs", payload["next_action"]["code"])
-
-    def test_package_stays_manual(self) -> None:
-        config = (PACKAGE / "agents" / "openai.yaml").read_text(encoding="utf-8")
-        self.assertIn("allow_implicit_invocation: false", config)
-
-
-if __name__ == "__main__":
-    unittest.main()
+if __name__=="__main__": unittest.main()

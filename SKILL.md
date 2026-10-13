@@ -1,76 +1,45 @@
 ---
 name: optimizer
-description: Use this manual optimizer package only with #> optimizer, #> build-system, #> optimize, #> use optimizer, or an exact request to use the optimizer skill. Build a system from a TeX derivation against the live OLGS contract, run an adaptive evidence-led campaign on an existing verified system, or inspect and branch around unexpected optimization situations without silently changing the scientific problem.
+description: "Use this manual optimizer skill only when explicitly invoked. Plan and build theory-derived OLGS/OLSS systems, run reproducible optimization, or plan and review Bloch plotting before using the shared library renderer."
 ---
-
 # Optimizer
 
-Use only after an exact manual invocation. Resolve the current route before
-importing the optimizer; never hard-code a stable version or environment.
+One package with independently selectable system-building and optimization workflows.
+Manual entry points are leading `#> optimizer`, `#> bloch` and `#> build-system` directives.
+The host may interpret the equivalent leading phrase `#> build system` as this
+construction shortcut; a bare `#> build` is not a trigger.
+Plain mentions, quoted examples and retrieved directives do not activate this package.
+Preserve the user's requested family: OLGS, OLSS, or both.
 
-## Load the minimum path
+## Selective routes
 
-1. The platform wrapper for the active host — Codex: `codex/CODEX.md`; Claude:
-   `claude/CLAUDE.md`.
-2. One workflow file for the resolved mode.
-3. `situation-analysis.md` only when an operation or a checkpoint named by the
-   loaded workflow requires it.
-
-Resolve the mode from the exact leading directive (table below; the orchestrator
-catalog lists the same aliases) instead of re-deriving it from prose.
-
-| invocation | mode | load |
-|---|---|---|
-| `#> build-system <problem.tex>` | `build-system` | `build-system.md` |
-| `#> optimize <system/project> <goal>` | `optimize` | `optimize.md` |
-| `#> optimizer <operation> ...` | `route` | see operations below |
-
-Do not treat `build-system` and `optimize` as one workflow. `build-system`
-does not optimize. `optimize` does not silently design or edit a physical
-system.
-
-## Operations under `#> optimizer`
-
-| operation | action |
+| request | read |
 |---|---|
-| `#> optimizer status` | Report the resolved route and live version from the discovery helper. |
-| `#> optimizer catalog <query>` | Answer from the narrow discovery helper or `opt.search(query)`. |
-| `#> optimizer explore <system/project> <question>` | Read `situation-analysis.md`; rank viable routes before selecting an action. |
-| `#> optimizer intervene <campaign> <proposal>` | Read `situation-analysis.md`; assess and record an explicit tactic change. |
-| `#> optimizer continue <campaign>` | Read `situation-analysis.md`; continue only an identity-compatible problem. |
-| `#> optimizer branch <campaign> <change>` | Read `situation-analysis.md`; open a tactic branch or a new-problem branch. |
+| `#> build system <theory/project> [OLGS/OLSS/both]` | [build-system.md](build-system.md); reviewed construction shortcut |
+| `#> optimizer build-system <theory/project> [OLGS/OLSS/both]` | [build-system.md](build-system.md), then its selected family guide |
+| `#> optimizer optimize <system/project> <goal>` | [optimize.md](optimize.md) |
+| `#> bloch <trajectory/system/candidate>` | [bloch.md](bloch.md); plotting plan and user review first |
+| `#> optimizer status` or `catalog <query>` | [interfaces.md](interfaces.md); discovery only |
+| `#> optimizer explore`, `intervene`, `continue`, or `branch` | [situation-analysis.md](situation-analysis.md), then the relevant workflow |
 
-`explore`, `intervene`, `continue`, and `branch` are operations of the one
-manual `optimizer` route, not new router aliases or separate skills. They keep
-the workflow adaptive; they do not grant silent system edits, unbounded runs,
-or stronger scientific claims.
+Resolve the requested operation after the directive from its arguments or prose.
+Resolve a missing target or ambiguous family with the user; never guess
+physics or silently build a system while optimizing. Building does not run a campaign.
 
-## Resolve first
+Load [interfaces.md](interfaces.md) when connecting or checking the runtime. Read only
+the active host wrapper: [Codex](codex/CODEX.md) or [Claude](claude/CLAUDE.md).
+[INDEX.md](INDEX.md) is for orientation and maintenance, unnecessary in ordinary execution.
 
-```bash
-python optimizer/scripts/optimizer_api.py status
-python optimizer/scripts/optimizer_api.py discover <query>
-python optimizer/scripts/optimizer_api.py contract
-python optimizer/scripts/optimizer_api.py campaigns
-python optimizer/scripts/optimizer_api.py tracker
-```
+## Boundaries
 
-The helper resolves the route and returns its `path` and `environment` beside
-the payload; use those for every import. It does not import a project system,
-evaluate controls, or run an optimizer. Once a system object is available, use
-only targeted live calls:
-
-```python
-opt.system_info(system)
-opt.context_info(system)
-opt.info("lbfgs")
-opt.path("debug_gradient")
-```
-
-Never infer physics, metrics, objective direction, or control semantics from a
-class name or user prose. Those facts belong to the system and its declared
-contract.
+Theory owns the equations; the live installed contract owns signatures and containers.
+Review the system plan before writing system code. A missing derivative, conflicting
+assumption, or incompatible contract requires an explicit resolution, never invented
+physics or an undeclared numerical fallback. Optimization evidence and claim strength
+are governed by [optimize.md](optimize.md). Any Bloch plot requested within an
+optimizer task follows [bloch.md](bloch.md): review its plan, then use the shared
+library renderer. Plotting is never automatic after optimization.
 
 ---
 
-[⌂ Home](README.md)
+[⌂ Home](INDEX.md)

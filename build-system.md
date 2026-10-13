@@ -1,39 +1,58 @@
-# Build system
+# Build a system
 
-Use only for `#> build-system <problem.tex>`. This workflow starts from the
-user-pointed derivation and is independent of campaign optimization.
+Plan, review, implement, and validate project-owned physics from the supplied theory.
+This workflow does not optimize. Parent: [Optimizer](SKILL.md).
 
-1. Resolve the live Optimizer route and read its OLGS contract and system-build
-   guidance.
-2. Read only the named TeX/source files. Extract state, dynamics, controls,
-   initial/target conditions, objective, constraints, and analytical-gradient
-   route.
-3. Map this particular derivation to the **live** system contract. Do not carry
-   a competing fixed API in this skill.
-4. Show a reviewable design before edits:
+## Choose the formulation
 
-```text
-derivation -> state/dynamics/controls -> numerical kernels -> live hooks
-```
+Read [interfaces.md](interfaces.md) and inspect the current family contract. The user
+may choose OLGS, OLSS, or both for one physical problem. Load only the selected
+specializations: [OLGS](build-olgs.md) and/or [OLSS](build-olss.md).
+Both formulations share a problem identity and theory references, with separate
+native layouts and acceptance checks. Prefer one readable module containing two
+self-contained classes when small; separate modules when it improves clarity.
+Do not introduce a shared physics superclass or a compatibility-wrapper hierarchy.
 
-Include primary versus secondary parameters, control layout, metrics, gradient
-route, vectorisation opportunities, cheap evaluation versus gradient-history
-path, and memory risks.
-5. Propose optional APIs only when the derivation or ordinary workflow requires
-   them: bounds, residuals/Jacobian, control transfer, HVP, prox, simulation,
-   or explicit plot data. State the reason and verification needed.
-6. Stop for review. After approval, implement only the reviewed scope and
-   verify TeX-to-code dynamics, shape/layout, finite metrics, and the
-   analytical directional-gradient check. If code fails or a result conflicts
-   with the declared contract or a necessary invariant, apply the
-   execution-integrity gate in `optimize.md`: preserve the smallest failing
-   case, inspect it, classify it, and revalidate after an approved correction
-   before presenting the system as optimization-ready.
+## Review before construction
 
-Prefer vectorized arrays and linear algebra where mathematically valid. Do not
-store full trajectories unless the derivative or requested diagnostic needs
-them. Do not invent missing physics.
+Present a concrete plan: theory sources and equation-to-hook mapping; assumptions,
+units, dynamics, boundary conditions, objective/action and derivative derivation;
+primary/secondary parameters; control/variable ordering, quadrature and grid;
+soft/hard constraints; family choice; optional capabilities; file layout; simulation
+and robustness scenarios; verification tolerances; measured cost and resource budget.
+Identify unsupported or ambiguous terms. Stop for review before writing system code.
+Approval covers that plan; a material change or unresolved conflict needs fresh review.
+
+Implement native hooks directly. A helper must perform a distinct mathematical or
+computational task, such as propagation or sensitivity integration; avoid aliases
+that only rename a hook. Prefer NumPy contractions, broadcasting, batched independent
+scenarios, allocation reuse, and combined evaluations where valid. Preserve sequential
+time dependence, memory bounds, dtype and reproducibility; benchmark useful changes.
+
+A project-defined `simulate` may return trajectories, observables, and scenario results.
+Specify how to vary physical uncertainties with controls frozen. Keep numerical accuracy
+options distinct from physical changes; do not disguise changed physics as verification.
+Inspect the live interface before promising MCP access to a project-only simulation hook.
+
+Validate static contracts, finite shapes, identity, input immutability, repeated-call
+consistency, simple analytical limits and independent propagation. Check derived
+formulas against explicit small diagnostic comparisons; finite differences are checks,
+not the optimization derivative. Add bounded physical tests rather than mirroring code.
+Return the system paths, derivation mapping, passed checks, unresolved issues and cost.
+
+## Contract conflicts
+
+Different names or inheritance alone need no adapter: implement the structural native
+contract. An unusual update can use a supported custom-step path only when the existing
+family contract still holds; inspect transport support before offering a live callback.
+For genuinely incompatible mathematics, explain the smallest extension or project-owned
+external solver needed, with effort and evidence limits. Do not fabricate gradients,
+residuals, Jacobians, or a dummy family declaration. User-approved exceptions must name
+the conflicting local rule, reason, scope and verification; they cannot waive API validity
+or mathematical correctness. Save outside-solver reports truthfully as imported evidence.
+
+Use the report ownership and persistence rules in [interfaces.md](interfaces.md).
 
 ---
 
-[⌂ Home](README.md)
+[⌂ Home](INDEX.md)

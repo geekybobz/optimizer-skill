@@ -1,98 +1,110 @@
 #!/usr/bin/env python3
-"""Return a compact, read-only discovery payload for the live Optimizer route."""
-
+"""Bounded read-only discovery from an installed optimizer, never a project factory."""
 from __future__ import annotations
-
 import argparse
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
-from typing import Any
+
+THREAD_KEYS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+               "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS", "BLIS_NUM_THREADS")
+MAX_RECEIPT = 65536
+MAX_OUTPUT = 1048576
 
 
-RESOLVER_RELATIVE = Path("registry") / "optimizer_registry.py"
+def resolve(receipt: Path | None = None, python: Path | None = None,
+            source_root: Path | None = None) -> dict:
+    source = (source_root or Path(os.environ.get("OPTIMIZER_SOURCE", str(Path.home()/"OPTIMIZER")))).expanduser().resolve()
+    out = {"source_root": str(source), "receipt": None, "receipt_metadata": None}
+    if python is None:
+        path = (receipt or Path.home()/".local/share/optimizer/install.json").expanduser().resolve()
+        with path.open("rb") as stream:
+            raw = stream.read(MAX_RECEIPT + 1)
+        if len(raw) > MAX_RECEIPT:
+            raise ValueError("install receipt exceeds 64 KiB")
+        metadata = json.loads(raw)
+        if not isinstance(metadata, dict) or metadata.get("schema") != "optimizer.install/1":
+            raise ValueError("unsupported install receipt")
+        value = metadata.get("python")
+        if not isinstance(value, str) or not Path(value).is_absolute():
+            raise ValueError("receipt requires an absolute Python executable")
+        python = Path(value)
+        out.update(receipt=str(path), receipt_metadata={k: metadata.get(k) for k in
+                   ("version", "commit", "package", "wheel_sha256")})
+    executable = python.expanduser().resolve()
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        raise ValueError("runtime Python missing/not executable: " + str(executable))
+    out["python"] = str(executable)
+    return out
 
 
-def resolver_path(explicit: Path | None = None) -> Path:
-    candidates: list[Path] = []
-    if explicit:
-        candidates.append(explicit.expanduser())
-    configured = os.environ.get("OPTIMIZER_REGISTRY")
-    if configured:
-        candidates.append(Path(configured).expanduser())
-    optimizer_home = os.environ.get("OPTIMIZER_HOME")
-    if optimizer_home:
-        candidates.append(Path(optimizer_home).expanduser() / RESOLVER_RELATIVE)
-    candidates.append(Path.home() / "OPTIMIZER" / RESOLVER_RELATIVE)
-    for candidate in candidates:
-        resolved = candidate.resolve()
-        if resolved.is_file():
-            return resolved
-    checked = ", ".join(str(path) for path in candidates)
-    raise ValueError(
-        "optimizer resolver not found; use --resolver, set OPTIMIZER_REGISTRY, "
-        f"or set OPTIMIZER_HOME (checked: {checked})"
-    )
-
-
-def resolve(route: str, resolver: Path | None = None) -> dict[str, Any]:
-    selected = resolver_path(resolver)
-    completed = subprocess.run(
-        [sys.executable, str(selected), "resolve", route, "--json"],
-        check=True,
-        text=True,
-        capture_output=True,
-    )
-    return json.loads(completed.stdout)
-
-
-def live_payload(route: dict[str, Any], command: str, topic: str | None) -> dict[str, Any]:
-    source = """
-import json
+QUERY = r"""
+import json, sys
 import optimizer as opt
-mode = __import__('sys').argv[1]
-topic = __import__('sys').argv[2] if len(__import__('sys').argv) > 2 else None
+mode, topic = sys.argv[1], sys.argv[2]
 if mode == 'status':
-    out = {'version': opt.__version__, 'groups': sorted(opt.info()['groups']), 'paths': sorted(opt.info()['paths'])}
+    payload = {'version': opt.__version__, 'package': opt.__file__,
+               'python': sys.executable}
 elif mode == 'discover':
-    out = opt.search(topic)
-elif mode == 'campaigns':
-    out = opt.campaigns.list()
-elif mode == 'tracker':
-    out = opt.tracker.info()
-elif mode == 'methods':
-    out = opt.optimizers.list()
+    payload = opt.search(topic)
 elif mode == 'contract':
-    out = opt.contract_info()
+    payload = opt.shooting_contract_info() if topic == 'olss' else opt.contract_info()
+elif mode == 'methods':
+    payload = {'olgs': opt.optimizers.list(), 'olss': opt.shooting.list()}
 else:
-    raise ValueError('unsupported mode')
-print(json.dumps(out, sort_keys=True, default=str))
+    raise ValueError('unsupported discovery command')
+print(json.dumps(payload, sort_keys=True, default=str))
 """
-    args = ["conda", "run", "--no-capture-output", "-n", str(route["environment"]), "python", "-c", source, command]
-    if topic is not None:
-        args.append(topic)
-    completed = subprocess.run(args, check=True, text=True, capture_output=True)
-    return {"route": route, "payload": json.loads(completed.stdout)}
 
 
-def main() -> int:
+def live_payload(runtime: dict, command: str, topic: str | None = None) -> dict:
+    if command not in {"status", "discover", "contract", "methods"}:
+        raise ValueError("unsupported discovery command")
+    if command == "discover" and (not topic or len(topic) > 256):
+        raise ValueError("discover requires a query of 1–256 characters")
+    if command == "contract" and topic not in (None, "olgs", "olss"):
+        raise ValueError("contract family must be olgs or olss")
+    env = dict(os.environ)
+    env.update({key: "1" for key in THREAD_KEYS})
+    # An on-disk anonymous output avoids unbounded capture in agent memory.
+    import tempfile
+    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+        result = subprocess.run([runtime["python"], "-I", "-c", QUERY, command, topic or ""],
+                                env=env, stdout=stdout, stderr=stderr, timeout=30)
+        stdout.seek(0)
+        raw = stdout.read(MAX_OUTPUT + 1)
+        if result.returncode:
+            stderr.seek(0)
+            error = stderr.read(4096).decode("utf-8", errors="replace")
+            raise ValueError("installed-runtime discovery failed: " + error)
+        if len(raw) > MAX_OUTPUT:
+            raise ValueError("discovery output exceeds 1 MiB; use a narrower query")
+    payload = json.loads(raw)
+    metadata = runtime.get("receipt_metadata")
+    if command == "status" and metadata:
+        if payload["version"] != metadata["version"] or str(Path(payload["package"]).parent) != metadata["package"]:
+            raise ValueError("live runtime differs from install receipt; inspect installation before use")
+    return {"runtime": runtime, "payload": payload}
+
+
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("status", "discover", "campaigns", "tracker", "methods", "contract"))
+    parser.add_argument("command", choices=("status", "discover", "contract", "methods"))
     parser.add_argument("topic", nargs="?")
-    parser.add_argument("--route", default="default")
-    parser.add_argument("--resolver", type=Path)
-    args = parser.parse_args()
-    if args.command == "discover" and not args.topic:
-        parser.error("discover requires a narrow query topic")
+    identity = parser.add_mutually_exclusive_group()
+    identity.add_argument("--receipt", type=Path)
+    identity.add_argument("--python", type=Path)
+    parser.add_argument("--source-root", type=Path)
+    args = parser.parse_args(argv)
     try:
-        route = resolve(args.route, args.resolver)
-        payload = live_payload(route, args.command, args.topic)
-    except (ValueError, subprocess.CalledProcessError, json.JSONDecodeError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        runtime = resolve(args.receipt, args.python, args.source_root)
+        result = live_payload(runtime, args.command, args.topic)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        print(json.dumps({"ok": False, "error": str(exc)}), file=sys.stderr)
         return 1
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 
 

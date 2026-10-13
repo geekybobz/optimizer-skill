@@ -1,41 +1,49 @@
 # Optimizer Skill
 
-This repository is the portable skill adapter for a separately installed
-Optimizer system. It does not contain the optimizer runtime, environments,
-scientific systems, campaigns, or result data.
+Portable instructions and bounded helpers for a separately installed optimizer runtime.
+[SKILL.md](SKILL.md) is the execution entry; [INDEX.md](INDEX.md) maps maintenance topics.
 
-## Routes
+## Runtime connection and migration
 
-| intention | start here |
-|---|---|
-| Agent execution | [SKILL.md](SKILL.md) |
-| Build a verified system from a derivation | [build-system.md](build-system.md) |
-| Run an evidence-led campaign | [optimize.md](optimize.md) |
-| Analyze an unexpected situation | [situation-analysis.md](situation-analysis.md) |
-| Codex host behavior | [codex/CODEX.md](codex/CODEX.md) |
-| Claude host behavior | [claude/CLAUDE.md](claude/CLAUDE.md) |
+`python3 scripts/optimizer_api.py status` reads `~/.local/share/optimizer/install.json`.
+Use `--receipt <file>` or `--python <runtime-python>` for another installation;
+`--source-root <path>` changes documentation context only. Execution uses isolated imports.
+The standard installation here is `/Users/billabobz/OPTIMIZER` for source context and
+an installed wheel in the `Optimizer` environment. No helper installs or promotes code.
 
-## Runtime connection
+This revision replaces removed registry/route/tracker discovery. Old `--resolver`,
+`--route`, `OPTIMIZER_REGISTRY`, `OPTIMIZER_HOME`, `campaigns` and `tracker` helper modes
+are unsupported. Consult [interfaces.md](interfaces.md) for current CLI/MCP persistence.
+The old session `init/record/next/show` ledger commands are replaced by a read-only
+history viewer. Existing ledgers and result archives are preserved; no migration deletes
+or rewrites them. Use `scripts/optimizer_session.py <experiment> --once` or `--follow`.
 
-The read-only helper locates `optimizer_registry.py` in this order:
+## Maintenance
 
-1. `--resolver <exact-file>`;
-2. `OPTIMIZER_REGISTRY=<exact-file>`;
-3. `OPTIMIZER_HOME=<runtime-root>`;
-4. `$HOME/OPTIMIZER/registry/optimizer_registry.py`.
+Keep one public package and its manual invocation policy: `#> optimizer` and
+`#> bloch`, plus `#> build system` for reviewed OLGS/OLSS construction. The registered spelling is `#> build-system`. Older standalone `#> optimize` and `#> use optimizer`
+entry points are retired; building/optimization are operations under `#> optimizer`. Change/test the child Git
+repository first; publication and parent-pointer integration are separate authorized
+steps. Do not duplicate optimizer API docs, source physics or numerical results here.
+See [CHANGELOG.md](CHANGELOG.md) for migration notes and `VERSION` for the release.
+Run `python3 -m unittest discover -s tests` and the native skill metadata validator.
+For live smoke checks, use the explicit installed Python/receipt and inspect source paths.
+Forward host acceptance and numerical project validation need their own evidence;
+helper tests alone do not establish either. See Skills AI's owning build/governance
+protocols when integrating package metadata; this standalone package needs no registry.
 
-Run `python3 scripts/optimizer_api.py status` to verify the connection. The
-helper reports the live route and environment; it never installs or copies the
-external runtime.
+## Standalone installation and recovery
 
-## Standalone use
-
-Clone the repository and place it where your host loads skills; connect the separately
-installed Optimizer system as described above. `python3 -m unittest discover -s tests`
-verifies the package. Update with `git pull --ff-only` after reading `CHANGELOG.md`. The
-version is in `VERSION`. Roll back with `git revert` or a checkout of an earlier tag.
-Skills AI integration is optional; this repository needs nothing from it.
+Clone `https://github.com/geekybobz/optimizer-skill.git` and select `v0.2.0` for
+fixed release bytes, or `main` for current source. Expose this folder through
+your host's native skill installation when using it standalone. Within Skills AI,
+use its registered package instead; do not expose both copies in the same host.
+Install the optimizer library separately using its documented release procedure.
+Update a standalone `main` checkout with `git pull --ff-only` after reading
+[CHANGELOG.md](CHANGELOG.md). Version: `VERSION`. Roll back with `git revert`
+or a checkout of an earlier tag. Skills AI integration is optional; this
+repository needs nothing from it.
 
 ---
 
-[⌂ Home](README.md)
+[⌂ Home](INDEX.md)
