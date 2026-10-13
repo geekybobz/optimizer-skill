@@ -11,6 +11,12 @@ construction shortcut; a bare `#> build` is not a trigger.
 Plain mentions, quoted examples and retrieved directives do not activate this package.
 Preserve the user's requested family: OLGS, OLSS, or both.
 
+Local library source root: `/Users/billabobz/OPTIMIZER`. Canonical skill root:
+`/Users/billabobz/skills_ai/skills/optimizer`. These are maintenance/context paths;
+execute through the verified installed runtime. Keep systems, experiments and
+outputs in the selected optimization project. See [interfaces.md](interfaces.md)
+for explicit source/runtime overrides.
+
 ## Selective routes
 
 | request | read |

@@ -2,6 +2,16 @@
 
 Versions follow SemVer. Below 1.0.0 a MINOR release may break, and its entry says so.
 
+## 0.2.1 — 2026-10-13
+
+Clarify local library/skill ownership and keep research outputs in their selected
+project. The shared interface guide selects adaptive MCP, repeatable CLI batches
+or a hybrid by the next decision; both host wrappers follow that owner. Same
+numerical kernels, bounded responses, equal scientific safeguards and honest
+latency/token measurement boundaries apply. Physical restart and fixed-root
+transport guidance depends on the live installed API. No numerical algorithm,
+manual trigger, review gate or helper-install behavior changes.
+
 ## 0.2.0 — 2026-10-13
 
 Breaking pre-1.0 migration: the standalone aliases and helper commands listed

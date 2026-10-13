@@ -12,21 +12,41 @@ or an explicitly supplied runtime Python, with isolated imports. `discover <quer
 is imported. Receipt metadata is provenance, not a fresh wheel-integrity certificate.
 Read only the named live API/contract and relevant source topic, not the entire manual.
 
-Prefer native optimizer MCP tools when exposed. Inspect schemas; attach to an existing
-experiment/coordinator, execute canonical operations, inspect compact records/references.
-If native tools are absent, use the installed CLI and report that boundary. SDK transport
-testing proves that transport, not native host-tool availability. Do not silently install,
-reconfigure or reload a host. Custom callbacks and project-only hooks require supported
-registration/transport; MCP cannot run arbitrary Python imports or callbacks.
+Select the interface by the next decision, not by an assumed solver-speed advantage:
+
+- Use native MCP for adaptive discovery, typed references, bounded inspection,
+  candidate selection and managed-job control when tools are exposed.
+- Use the installed CLI for a predetermined repeatable sequence: one bounded
+  script can run several operations in one host call. Stop and inspect failures;
+  do not batch decisions that require looking at an earlier result first.
+- Combine them through the same named experiment/coordinator and retained refs;
+  a CLI batch need not export large arrays for MCP to continue the work.
+
+Both routes use the same numerical service, persistence and history. Host tool
+round trips, response envelopes and batching can dominate short calls. Wire bytes
+are not measured model tokens; compare equal starts/options/work and separate
+numerical runtime from client/host overhead. Do not claim MCP accelerates the solver
+or that CLI is universally faster. Prefer summaries/refs, inspect only needed values,
+and use bounded chunks or managed jobs for long work. Never weaken analytical
+physics, multistart, independent verification or resource limits to save tokens.
+
+Inspect live schemas before calling. If native tools are absent, use the installed
+CLI and report the boundary. SDK transport tests do not establish native host-tool
+availability. Do not silently install, reconfigure or reload a host. Project-only
+hooks/callbacks require supported registration; MCP does not run arbitrary imports.
 
 For a new run, initialize a named experiment with `project.init(name=..., root=...)`
 through the installed CLI; open existing experiments explicitly, never overwrite one.
 MCP attachment requires an existing persistent experiment; start the coordinator explicitly
-when needed. Keep server/client temporary-directory settings consistent. Inspect current
+when needed. When live provenance confirms fixed-root owner transport, TMPDIR need not match;
+for an older runtime, follow its documented launch configuration. Inspect current
 session state around failures; a lost reply does not mean cancellation or rollback.
 Use bounded foreground chunks, or supported managed jobs with bounded waits. Numeric
 candidate activation is explicit after inspection. Live-worker resume differs from
 physical restart after a dead worker; exact disk continuation is method/certification-specific.
+When supported by the installed API, mode="physical" resolves OLGS/OLSS per context
+and resets method memory. Keep exact as an explicit distinct claim. Older runtimes
+may require plain physical heads in every context or separate family experiments.
 
 ## Persistence receipt
 
